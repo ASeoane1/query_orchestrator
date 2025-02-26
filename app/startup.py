@@ -1,95 +1,79 @@
 import psycopg
+from .postgresql_utils import PostgresqlUtils
 
-def startup(config):
-    """
-    Initializes a connection to the PostgreSQL database.
+TABLE_NAMES_QUERY = 'sql/autopopulate/table_names.sql'
+TABLE_ID_QUERY = 'sql/autopopulate/table_id.sql'
+TABLE_CONSTRAINTS_QUERY = 'sql/autopopulate/table_constraints.sql'
 
-    :param config: Dictionary containing the database configuration.
-    :return: psycopg connection object.
-    """
-    db_config = config.get("native_database")
-    if not db_config:
-        raise ValueError("❌ Unable to find database connection values in the configuration file.")
+class Startup:
+    def __init__(self, config):
+        self.config = config
+        db_config = self.config.get("native_database")
+        self.postgresql_utils = PostgresqlUtils(db_config)
 
-    dbname = db_config.get("dbname")
-    user = db_config.get("user")
-    password = db_config.get("password")
-    host = db_config.get("host", "localhost")
-    port = db_config.get("port", 5432)
+    def run(self):
+        """
+        Cleans and populates database
+        """
+        try:
+            self.postgresql_utils.clean_database()
+            self.populate_database()
+        except Exception as e:
+            print(f"❌ Error during startup: {e}")
+            raise
 
-    try:
-        # Establish connection
-        conn = psycopg.connect(
-            dbname=dbname,
-            user=user,
-            password=password,
-            host=host,
-            port=port,
-            autocommit=True
-        )
-        print("✅ Connected successfully to the database.")
+    def populate_database(self):
+        """
+        Populates database
+        """
+        groups = self.config.get("groups", [])
+        for group in groups:
+            #Open connection for the current group
+            self.postgresql_utils.open_connection(dbname=group[0].get("dbname"),user=group[0].get("user"), password=group[0].get("password"), host=group[0].get("host"),port=group[0].get("port"))
+            print("🔄 Loading schema: {}".format(group[0].get("schema")))
+            #Insert current group schema
+            query = "INSERT INTO query_orchestrator.schemas (name, \"group\") VALUES ('{}', '{}');".format(group[0].get("schema"), group[0].get("name"))
+            self.postgresql_utils.execute_query_without_return(query)
 
-        # Clean and initialize the database
-        _clean_database(conn)
+            #Get current group tables
+            query = "SELECT * FROM query_orchestrator.schemas WHERE name = '{}' AND \"group\" = '{}'".format(group[0].get("schema"), group[0].get("name"))
+            schema = self.postgresql_utils.execute_query_with_return(query)
+            query = self.postgresql_utils.load_query(file_name=TABLE_NAMES_QUERY,schema=group[0].get("schema"))
 
-    except Exception as e:
-        print(f"❌ Unable to connect to database: {e}")
-        raise
+            tables = self.postgresql_utils.execute_query_with_return(query)
 
-def _clean_database(conn):
-    """
-    Drops and recreates the schema 'query_orchestrator' along with its tables.
-    :param conn: Active psycopg connection to PostgreSQL.
-    """
-    try:
-        with conn.cursor() as cur:
-            print("🔄 Cleaning database: Dropping schema and recreating tables...")
+            #Loop current group tables
+            print("🔄 Loading {} tables...".format(group[0].get("schema")))
+            for table in tables:
+                #Get current table id
+                query = self.postgresql_utils.load_query(file_name=TABLE_ID_QUERY,schema=group[0].get("schema"),table=table[0])
+                table_id = self.postgresql_utils.execute_query_with_return(query)
+                #Insert current group tables
+                query = "INSERT INTO query_orchestrator.tables (name, schema, table_id, serial_id) VALUES ('{}', '{}', '{}', '{}');".format(table[0], schema[0][0], table_id[0][0], table_id[0][1])
+                self.postgresql_utils.execute_query_without_return(query)
+            print("✅ Tables in schema: {} successfully loaded".format(group[0].get("schema")))
 
-            # Drop schema and cascade all objects
-            cur.execute("DROP SCHEMA IF EXISTS query_orchestrator CASCADE;")
+            #Loop tables after insertion
+            print("🔄 Loading {} constraints...".format(group[0].get("schema")))
+            for table in tables:
+                #Get current table id
+                query = "SELECT * FROM query_orchestrator.tables WHERE name = '{}' AND \"schema\" = '{}'".format(table[0], schema[0][0])
+                current_table = self.postgresql_utils.execute_query_with_return(query)
 
-            # Recreate schema
-            cur.execute("CREATE SCHEMA IF NOT EXISTS query_orchestrator;")
+                #Get current table constraints
+                query = self.postgresql_utils.load_query(file_name=TABLE_CONSTRAINTS_QUERY,schema=group[0].get("schema"),table=table[0])
+                constraints = self.postgresql_utils.execute_query_with_return(query)
+                #Insert constraints
+                if(constraints):
+                    #Get referenced table
+                    query = "SELECT * FROM query_orchestrator.tables WHERE name = '{}' AND \"schema\" = '{}'".format(constraints[0][2].split(".")[1], schema[0][0])
+                    referenced_table = self.postgresql_utils.execute_query_with_return(query)
 
-            # Create tables
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS query_orchestrator.schemas (
-                    id SERIAL PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    "group" TEXT NOT NULL
-                );
-            """)
+                    query = "INSERT INTO query_orchestrator.constraints (name, \"table\", referenced_table, table_key, referenced_table_key) VALUES ('{}', '{}', '{}', '{}', '{}');".format(constraints[0][0], current_table[0][0], referenced_table[0][0], constraints[0][3], constraints[0][4])
+                    self.postgresql_utils.execute_query_without_return(query)
+            print("✅ Constraints in schema: {} successfully loaded".format(group[0].get("schema")))
 
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS query_orchestrator.tables (
-                    id SERIAL PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    "schema" INT NOT NULL,
-                    CONSTRAINT fk_schema FOREIGN KEY ("schema") 
-                        REFERENCES query_orchestrator.schemas(id) 
-                        ON DELETE CASCADE
-                );
-            """)
+        print("✅ Schema {} successfully loaded".format(group[0].get("schema")))
+                
 
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS query_orchestrator.constraints (
-                    id SERIAL PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    origin_table INT NOT NULL,
-                    destination_table INT NOT NULL,
-                    origin_key TEXT NOT NULL,
-                    destination_key TEXT NOT NULL,
-                    CONSTRAINT fk_origin_table FOREIGN KEY (origin_table) 
-                        REFERENCES query_orchestrator.tables(id) 
-                        ON DELETE CASCADE,
-                    CONSTRAINT fk_destination_table FOREIGN KEY (destination_table) 
-                        REFERENCES query_orchestrator.tables(id) 
-                        ON DELETE CASCADE
-                );
-            """)
 
-            print("✅ Database cleaned and schema recreated successfully.")
-    
-    except Exception as e:
-        print(f"❌ Error while cleaning database: {e}")
-        raise

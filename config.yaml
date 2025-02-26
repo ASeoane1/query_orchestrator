@@ -1,6 +1,29 @@
+---
 native_database:
   dbname: "dbname"
   user: "user"
   password: "password"
   host: "host"
-  port: 9999
+  port: 0000
+groups:
+  - - schema: schema1
+      dbname: dbname1
+      user: user1
+      password: password1
+      host: host1
+      port: 0000
+      name: name1
+    - schema: schema2
+      dbname: dbname2
+      user: user2
+      password: password2
+      host: host2
+      port: 0000
+      name: name2
+  - - schema: schema3
+      dbname: dbname3
+      user: user3
+      password: password3
+      host: host3
+      port: 0000
+      name: name3
