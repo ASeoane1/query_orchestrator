@@ -1,5 +1,6 @@
 
-import psycopg
+import psycopg2
+from psycopg2 import extras
 
 
 START_SEQUENCE = 'sql/native/remake.sql'
@@ -21,14 +22,14 @@ class PostgresqlUtils:
 
     def open_connection(self, dbname, user, password, host, port):
         try:
-            self.connection = psycopg.connect(
+            self.connection = psycopg2.connect(
                 dbname=dbname,
                 user=user,
                 password=password,
                 host=host,
-                port=port,
-                autocommit=True
+                port=port
             )
+            self.connection.autocommit = True
             print("✅ Connected successfully to {} database.".format(dbname))
         except Exception as e:
             print("❌ Unable to connect to {} database: {e}".format(dbname))
@@ -67,6 +68,16 @@ class PostgresqlUtils:
         """
         try:
             with self.connection.cursor() as cursor:
+                cursor.execute(query)
+                result = cursor.fetchall()
+                return result
+        except Exception as e:
+            print(f"❌ Error while executing query: {e}")
+            return None
+        
+    def execute_query_with_dict_return(self, query):
+        try:
+            with self.connection.cursor(cursor_factory=extras.RealDictCursor) as cursor:
                 cursor.execute(query)
                 result = cursor.fetchall()
                 return result

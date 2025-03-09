@@ -1,5 +1,6 @@
 import psycopg
 from .postgresql_utils import PostgresqlUtils
+from .postgre_rollback_generator import PostgreRollbackGenerator
 
 TABLE_NAMES_QUERY = 'sql/autopopulate/table_names.sql'
 TABLE_ID_QUERY = 'sql/autopopulate/table_id.sql'
@@ -26,6 +27,10 @@ class Startup:
         """
         Populates database
         """
+
+        postgre_rollback_generator = PostgreRollbackGenerator(self.postgresql_utils)
+
+
         groups = self.config.get("groups", [])
         for group in groups:
             #Open connection for the current group
@@ -74,6 +79,9 @@ class Startup:
             print("✅ Constraints in schema: {} successfully loaded".format(group[0].get("schema")))
 
         print("✅ Schema {} successfully loaded".format(group[0].get("schema")))
-                
+
+        print(postgre_rollback_generator.generate_delete_rollback("DELETE FROM test1.employees WHERE id = 1", self.postgresql_utils))
+        print(postgre_rollback_generator.generate_insert_rollback("INSERT INTO test1.employees (\"name\", manager) VALUES('ALVARO', 1)"))
+        print(postgre_rollback_generator.generate_update_rollback("UPDATE test1.employees SET \"manager\" = 2 WHERE \"name\" = 'ALVARO'", self.postgresql_utils))                
 
 
