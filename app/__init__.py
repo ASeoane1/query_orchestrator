@@ -1,6 +1,9 @@
 import os
 import yaml
 from flask import Flask
+
+from app.endpoints import API
+from app.jwt_manager import JWTManager
 from .startup import Startup
 
 def load_config(config_path=None):
@@ -30,7 +33,8 @@ def init_app(config_path=None):
     startup = Startup(config)
     startup.run()
 
-    from .endpoints import register_routes
-    register_routes(app)
+    jwt_manager = JWTManager(secret=config.get("secret"))
+    api_instance = API(jwt_manager)
+    api_instance.register(app)
 
     return app
