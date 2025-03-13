@@ -29,3 +29,8 @@ CREATE TABLE IF NOT EXISTS query_orchestrator.constraints (
         REFERENCES query_orchestrator.tables(id) 
         ON DELETE CASCADE
 );
+CREATE TABLE IF NOT EXISTS query_orchestrator.history (
+	id SERIAL PRIMARY KEY,
+	"query" TEXT NOT NULL,
+	"rollback" TEXT
+);

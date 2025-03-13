@@ -19,7 +19,7 @@ groups:
       password: password2
       host: host2
       port: 0000
-      name: name2
+      name: name1
   - - schema: schema3
       dbname: dbname3
       user: user3
