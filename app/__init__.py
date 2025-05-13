@@ -4,6 +4,7 @@ from flask import Flask
 
 from app.endpoints import API
 from app.jwt_manager import JWTManager
+from app.postgresql_query_executor import PSQLExecutor
 from .startup import Startup
 
 def load_config(config_path=None):
@@ -34,7 +35,9 @@ def init_app(config_path=None):
     startup.run()
 
     jwt_manager = JWTManager(secret=config.get("secret"))
-    api_instance = API(jwt_manager)
+    print(config)
+    executor = PSQLExecutor(config)
+    api_instance = API(jwt_manager, executor)
     api_instance.register(app)
 
     return app

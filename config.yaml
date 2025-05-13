@@ -1,4 +1,5 @@
 ---
+secret: jwt_secret
 native_database:
   dbname: "dbname"
   user: "user"
@@ -27,4 +28,5 @@ groups:
       host: host3
       port: 0000
       name: name3
-secret: jwt_secret
+
+

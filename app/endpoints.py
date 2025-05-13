@@ -48,7 +48,7 @@ class API:
         def status():
             return {"status": "ok"}
 
-        @self.blueprint.route('/generate-token', methods=['POST'])
+        @self.blueprint.route('/generate_token', methods=['POST'])
         @self.admin_required
         def generate_token():
             """
@@ -88,7 +88,7 @@ class API:
             token = self.jwt_manager.create_token(data, user, is_admin_param)
             return jsonify({"token": token})
         
-        @self.blueprint.route('/generate-token', methods=['POST'])
+        @self.blueprint.route('/execute_query', methods=['POST'])
         def execute_query():
             auth_header = request.headers.get('Authorization')
             if not auth_header or not auth_header.startswith("Bearer "):
@@ -101,7 +101,22 @@ class API:
                 return jsonify({"error": "Invalid token"}), 403
 
             req_data = request.get_json()
-            return self.executor.execute_query(req_data, token_payload.get('data'))
+            return self.executor.execute_query(req_data, token_payload)
+        
+        @self.blueprint.route('/execute_rollback', methods=['POST'])
+        def execute_rollback():
+            auth_header = request.headers.get('Authorization')
+            if not auth_header or not auth_header.startswith("Bearer "):
+                return jsonify({"error": "Authorization header missing or invalid"}), 403
+            
+            token = auth_header.split(" ")[1]
+            try:
+                token_payload = self.jwt_manager.read_token(token)
+            except Exception:
+                return jsonify({"error": "Invalid token"}), 403
+
+            req_data = request.get_json()
+            return self.executor.execute_rollback(req_data, token_payload)
 
     def register(self, app):
         """
