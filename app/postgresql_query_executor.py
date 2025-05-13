@@ -20,7 +20,10 @@ class PSQLExecutor:
                 id = None
                 if query_type == 'insert' and 'write' in roles.get(group[0].get("name")):
                     try:
-                        rollback_query = self.postgre_rollback_generator.generate_insert_rollback(payload.get("query"))
+                        if not payload.get("rollback"):
+                            rollback_query = self.postgre_rollback_generator.generate_insert_rollback(payload.get("query"))
+                        else:
+                            rollback_query = payload.get("rollback")
                         id = self._insert_rollback(query=payload.get("query"), rollback=rollback_query)
                     except Exception as e:
                         return jsonify({"error": "Something went wrong while generating the rollback", "message":e}), 400
@@ -30,7 +33,10 @@ class PSQLExecutor:
                         return jsonify({"error": "Something went wrong while executing the query", "message":e}), 400
                 elif query_type == 'delete' and 'write' in roles.get(group[0].get("name")):
                     try:
-                        rollback_query = self.postgre_rollback_generator.generate_delete_rollback(payload.get("query"), postgresql_utils)
+                        if not payload.get("rollback"):
+                            rollback_query = self.postgre_rollback_generator.generate_delete_rollback(payload.get("query"), postgresql_utils)
+                        else:
+                            rollback_query = payload.get("rollback")
                         id = self._insert_rollback(query=payload.get("query"), rollback=rollback_query)
                     except Exception as e:
                         return jsonify({"error": "Something went wrong while generating the rollback", "message":e}), 400
@@ -40,7 +46,10 @@ class PSQLExecutor:
                         return jsonify({"error": "Something went wrong while executing the query", "message":e}), 400
                 elif query_type == 'update' and 'write' in roles.get(group[0].get("name")):
                     try:
-                        rollback_query = self.postgre_rollback_generator.generate_update_rollback(payload.get("query"), postgresql_utils)
+                        if not payload.get("rollback"):
+                            rollback_query = self.postgre_rollback_generator.generate_update_rollback(payload.get("query"), postgresql_utils)
+                        else:
+                            rollback_query = payload.get("rollback")
                         id = self._insert_rollback(query=payload.get("query"), rollback=rollback_query)
                     except Exception as e:
                         return jsonify({"error": "Something went wrong while generating the rollback", "message":e}), 400
@@ -55,6 +64,11 @@ class PSQLExecutor:
                         return jsonify({"error": "Something went wrong while executing the query", "message":e}), 400
                 elif query_type == 'other' and 'write' in roles.get(group[0].get("name")):
                     try:
+                        if payload.get("rollback"):
+                            rollback_query = payload.get("rollback")
+                        else:
+                            rollback_query = ''
+                        id = self._insert_rollback(query=payload.get("query"), rollback=rollback_query)
                         self._execute_query_in_all_sources(group=group,query=payload.get("query"))
                     except Exception as e:
                         return jsonify({"error": "Something went wrong while executing the query", "message":e}), 400
