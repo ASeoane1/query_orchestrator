@@ -96,6 +96,18 @@ class PostgresqlUtils:
             print(f"❌ Error while executing query: {e}")
             return None
         
+    def insert_rollback(self, query, rollback):
+        """
+        Inserts rollback
+        """
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute("INSERT INTO query_orchestrator.history (\"query\", \"rollback\") VALUES (%s, %s) RETURNING id",(query, rollback))
+                return cursor.fetchone()[0]
+        except Exception as e:
+            print(f"❌ Error while executing query: {e}")
+            return None
+        
     def load_query(self, file_name, schema = '', table = ''):
         with open(file_name, 'r', encoding='utf-8') as file:
             query = file.read()

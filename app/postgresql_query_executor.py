@@ -119,8 +119,7 @@ class PSQLExecutor:
             self.postgresql_utils.close_connection()
     
     def _insert_rollback(self, query, rollback):
-        self.postgresql_utils_native.execute_query_without_return("INSERT INTO query_orchestrator.history (\"query\", \"rollback\") VALUES ('{}', '{}')".format(query,rollback))
-        return self.postgresql_utils_native.execute_query_with_return("SELECT id FROM query_orchestrator.history WHERE \"query\" = '{}' AND \"rollback\" = '{}'".format(query,rollback))[0][0]
+        return self.postgresql_utils_native.insert_rollback(query,rollback)
 
     
     def _get_query_type(self, query: str) -> str:
